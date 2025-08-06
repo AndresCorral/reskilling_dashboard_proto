@@ -28,6 +28,29 @@
         .max-h-0 { max-height: 0; }
         .max-h-screen { max-height: 100vh; }
         .transition-all { transition: all 0.3s ease-in-out; }
+        .cohort-heatmap th, .cohort-heatmap td {
+            text-align: center;
+            padding: 0.75rem 0.5rem;
+            font-size: 0.875rem;
+        }
+        .cohort-heatmap th {
+            font-weight: 600;
+            background-color: #f9fafb;
+        }
+        .cohort-heatmap td {
+            color: #1f2937;
+            font-weight: 500;
+        }
+        .heatmap-cell {
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        .heatmap-cell:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            z-index: 10;
+            position: relative;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -150,8 +173,13 @@
                     </div>
                     
                     <div class="mt-8 bg-white p-6 rounded-xl shadow-md">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Evolución de Competencias Clave en el Tiempo</h3>
-                        <div class="chart-container"><canvas id="time-evolution-chart"></canvas></div>
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4" id="cohort-heatmap-title">Análisis Comparativo</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full cohort-heatmap">
+                                <thead id="cohort-heatmap-head"></thead>
+                                <tbody id="cohort-heatmap-body"></tbody>
+                            </table>
+                        </div>
                     </div>
 
                     <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-8">
@@ -173,37 +201,16 @@
         const mockStudents = Array.from({ length: 23 }, (_, i) => {
             const nameParts = ['Juan', 'Maria', 'Pedro', 'Ana', 'Carlos', 'Sofia', 'Diego', 'Salma', 'Gael', 'Eiza', 'Javier', 'Penélope', 'Antonio', 'Shakira', 'Maluma', 'Karol', 'J Balvin', 'Lionel', 'Antonela', 'Luis', 'Neymar', 'Sofía', 'Benito'];
             const lastNames = ['Prueba', 'Alarcón', 'Pascal', 'de Armas', 'Santana', 'Vergara', 'Luna', 'Hayek', 'García', 'González', 'Bardem', 'Cruz', 'Banderas', 'Mebarak', 'Londoño', 'Giraldo', 'Balvin', 'Messi', 'Roccuzzo', 'Suárez', 'Jr', 'Jirau', 'Martínez'];
-            const statusOptions = [
-                { status: 'En Riesgo', statusColor: 'red' },
-                { status: 'Estable', statusColor: 'yellow' },
-                { status: 'En Avance', statusColor: 'green' }
-            ];
+            const statusOptions = [ { status: 'En Riesgo', statusColor: 'red' }, { status: 'Estable', statusColor: 'yellow' }, { status: 'En Avance', statusColor: 'green' } ];
             const randomStatus = statusOptions[Math.floor(Math.random() * statusOptions.length)];
-            
             const competencies = {};
-            allCompetencies.forEach(c => {
-                competencies[c] = allLevels[Math.floor(Math.random() * allLevels.length)];
-            });
-
-            return {
-                name: `${nameParts[i]} ${lastNames[i]}`,
-                year: 2022 + Math.floor(Math.random() * 3),
-                status: randomStatus.status,
-                statusColor: randomStatus.statusColor,
-                trend: Array.from({ length: 3 }, () => Math.floor(Math.random() * 50 + 40)),
-                competencies: competencies,
-                type: ['Activos', 'Egresados'][Math.floor(Math.random() * 2)]
-            };
+            allCompetencies.forEach(c => { competencies[c] = allLevels[Math.floor(Math.random() * allLevels.length)]; });
+            return { name: `${nameParts[i]} ${lastNames[i]}`, year: 2022 + Math.floor(Math.random() * 3), status: randomStatus.status, statusColor: randomStatus.statusColor, trend: Array.from({ length: 3 }, () => Math.floor(Math.random() * 50 + 40)), competencies: competencies, type: ['Activos', 'Egresados'][Math.floor(Math.random() * 2)] };
         });
 
         function getStudentCardHTML(student, index) {
-            const statusClasses = {
-                red: 'text-red-800 bg-red-100',
-                green: 'text-green-800 bg-green-100',
-                yellow: 'text-yellow-800 bg-yellow-100'
-            };
+            const statusClasses = { red: 'text-red-800 bg-red-100', green: 'text-green-800 bg-green-100', yellow: 'text-yellow-800 bg-yellow-100' };
             const initials = student.name.split(' ').map(n => n[0]).join('');
-            
             return `
                 <div class="bg-white rounded-xl shadow-md overflow-hidden">
                     <div class="p-4">
@@ -230,11 +237,7 @@
         
         function getStudentListHTML(studentsToRender) {
             const studentCardsHTML = studentsToRender.map((student, index) => getStudentCardHTML(student, index)).join('');
-            const summary = {
-                total: studentsToRender.length,
-                riesgo: studentsToRender.filter(s => s.status === 'En Riesgo').length
-            };
-
+            const summary = { total: studentsToRender.length, riesgo: studentsToRender.filter(s => s.status === 'En Riesgo').length };
             return `
                 <div id="student-list-view">
                     <div class="mb-8">
@@ -260,14 +263,12 @@
             if (level === 'carrera') factor = 0.1;
             if (level === 'ciclo') factor = 0.05;
             if (level === 'cohorte') factor = 0.03;
-
             const total = Math.floor(baseTotal * factor);
             const realizadas = Math.floor(total * (Math.random() * 0.15 + 0.8));
             const creditosUsados = realizadas;
             const talentosIdentificados = Math.floor(realizadas * (Math.random() * 0.1 + 0.1));
             const costoPorInsight = creditosUsados > 0 && talentosIdentificados > 0 ? (creditosUsados * 1.5) / talentosIdentificados : 0;
             const riesgoCantidad = Math.floor(realizadas * (Math.random() * 0.1 + 0.05));
-
             return {
                 cobertura: { total, realizadas, porcentaje: total > 0 ? Math.round((realizadas / total) * 100) : 0 },
                 roi: { creditosUsados, costoPorInsight },
@@ -280,9 +281,7 @@
             const estadoFilter = document.getElementById('student-estado-filter').value;
             const competenciaFilter = document.getElementById('student-competencia-filter').value;
             const nivelFilter = document.getElementById('student-nivel-filter').value;
-
             let filteredStudents = mockStudents;
-
             if (estadoFilter !== 'Todos') {
                 if (estadoFilter === 'En Riesgo') {
                     filteredStudents = filteredStudents.filter(s => s.status === 'En Riesgo');
@@ -295,7 +294,6 @@
                     filteredStudents = filteredStudents.filter(s => s.competencies[competenciaFilter] === nivelFilter);
                 }
             }
-            
             mainContent.innerHTML = getStudentListHTML(filteredStudents);
             renderStudentCharts(filteredStudents);
             addEventListeners();
@@ -304,7 +302,6 @@
         function renderContent() {
             renderBreadcrumb();
             const levelTitles = { institucion: 'Análisis Institucional', sede: `Análisis de Sede: ${state.path[1]}`, carrera: `Análisis de Carrera: ${state.path[2]}`, ciclo: `Análisis de Ciclo: ${state.path[3]}`, cohorte: `Listado de Alumnos: ${state.path[4]}`};
-            
             if (state.level === 'cohorte') {
                 segmentBtnText.textContent = "Filtrar Alumnos";
                 renderFilterPanel('student');
@@ -362,31 +359,67 @@
                 filterPanel.innerHTML = getDashboardFilterHTML();
             }
         }
+        
+        const comparativeData = {};
+        function generateComparativeData() {
+            const sedes = Array.from({ length: 30 }, (_, i) => `Sede ${i + 1}`);
+            const carreras = Array.from({ length: 45 }, (_, i) => `Carrera ${i + 1}`);
+            const ciclos = Array.from({ length: 35 }, (_, i) => `Ciclo ${i + 1}`);
+            const cohorts = Array.from({ length: 50 }, (_, i) => `Cohorte ${2020 + i}`);
+            const keyCompetencies = ['Liderazgo', 'Comunicación', 'Resiliencia', 'Toma de decisiones', 'Pensamiento Crítico'];
+
+            function generateScores(base = 50, improvement = 5) {
+                return keyCompetencies.map(() => Math.floor(Math.random() * 10 + base + improvement));
+            }
+
+            comparativeData['Institución'] = { title: 'Sedes', children: sedes, competencies: keyCompetencies, data: {} };
+            sedes.forEach(sede => {
+                comparativeData['Institución'].data[sede] = generateScores(50, 0);
+                const sedeCarreras = carreras.slice(0, Math.floor(Math.random() * 5) + 3);
+                comparativeData[sede] = { title: 'Carreras', children: sedeCarreras, competencies: keyCompetencies, data: {} };
+                sedeCarreras.forEach(carrera => {
+                    comparativeData[sede].data[carrera] = generateScores(55, 0);
+                    const carreraCiclos = ciclos.slice(0, Math.floor(Math.random() * 4) + 2);
+                    comparativeData[carrera] = { title: 'Ciclos', children: carreraCiclos, competencies: keyCompetencies, data: {} };
+                    carreraCiclos.forEach((ciclo, i) => {
+                        comparativeData[carrera].data[ciclo] = generateScores(60, i * 3);
+                        const cicloCohorts = cohorts.slice(0, Math.floor(Math.random() * 3) + 2);
+                        comparativeData[ciclo] = { title: 'Cohortes', children: cicloCohorts, competencies: keyCompetencies, data: {} };
+                        cicloCohorts.forEach((cohorte, j) => {
+                            comparativeData[ciclo].data[cohorte] = generateScores(65, i * 3 + j * 2);
+                        });
+                    });
+                });
+            });
+        }
+        generateComparativeData();
 
         function updateDrilldownOptions() {
             const container = document.getElementById('drilldown-container');
             const titleEl = document.getElementById('drilldown-title');
             if (!container) return;
             
-            let options = [];
+            const currentView = state.path[state.path.length - 1];
+            const data = comparativeData[currentView];
+            
+            if (!data || !data.children) {
+                container.innerHTML = '';
+                titleEl.textContent = 'No hay más niveles para analizar';
+                return;
+            }
+
+            titleEl.textContent = `Análisis por ${data.title}`;
+            
             const levels = ['institucion', 'sede', 'carrera', 'ciclo', 'cohorte'];
             const nextLevel = levels[levels.indexOf(state.level) + 1];
 
-            if (state.level === 'institucion') {
-                titleEl.textContent = "Análisis por Sedes";
-                options = [{level: nextLevel, name: 'Sede Central'}, {level: nextLevel, name: 'Sede Norte'}, {level: nextLevel, name: 'Sede Sur'}, {level: nextLevel, name: 'Campus Andino'}, {level: nextLevel, name: 'Campus Virtual'}];
-            } else if (state.level === 'sede') {
-                titleEl.textContent = "Análisis por Carreras";
-                options = [{level: nextLevel, name: 'Ing. Comercial'}, {level: nextLevel, name: 'Psicología'}, {level: nextLevel, name: 'Diseño Gráfico'}];
-            } else if (state.level === 'carrera') {
-                 titleEl.textContent = "Análisis por Ciclos";
-                 options = [{level: nextLevel, name: 'Ciclo 1'}, {level: nextLevel, name: 'Ciclo 3'}, {level: nextLevel, name: 'Ciclo 5 (Egresados)'}];
-            } else if (state.level === 'ciclo') {
-                 titleEl.textContent = "Análisis por Cohortes";
-                 options = [{level: nextLevel, name: 'Cohorte 2024'}, {level: nextLevel, name: 'Cohorte 2023'}];
+            const pillsToShow = data.children.length > 8 ? data.children.slice(0, 8) : data.children;
+            let html = pillsToShow.map(child => getDrilldownPillHTML({level: nextLevel, name: child})).join('');
+
+            if (data.children.length > 8) {
+                html += `<button id="show-more-btn" class="px-4 py-2 text-sm font-semibold text-blue-600 hover:underline">Ver más...</button>`;
             }
-            
-            container.innerHTML = options.map(opt => getDrilldownPillHTML(opt)).join('');
+            container.innerHTML = html;
         }
 
         function addEventListeners() {
@@ -418,36 +451,60 @@
             document.querySelectorAll('.filter-input').forEach(input => {
                 if (state.level === 'cohorte') {
                     input.addEventListener('change', filterAndRenderStudents);
-                } else {
-                    // Add logic for dashboard filtering here if needed
                 }
+            });
+
+            document.querySelectorAll('.heatmap-cell').forEach(cell => {
+                cell.addEventListener('click', (e) => {
+                    const level = e.currentTarget.dataset.drilldownLevel;
+                    const name = e.currentTarget.dataset.drilldownName;
+                    const competency = e.currentTarget.dataset.competency;
+
+                    state.level = level;
+                    state.path.push(name);
+                    renderContent();
+                    
+                    // Pre-apply filter after render
+                    setTimeout(() => {
+                        const filterPanel = document.getElementById('filterPanel');
+                        filterPanel.classList.add('max-h-screen');
+                        filterPanel.classList.remove('max-h-0');
+                        // This logic needs to be adapted for the new filter structure
+                    }, 100);
+                });
             });
         }
 
         function renderDashboardCharts() {
-            const competencies = ['Liderazgo', 'Comunicación', 'T. Equipo', 'P. Crítico', 'Resiliencia', 'Adaptabilidad', 'T. Decisiones'];
+            const competencies = ['Liderazgo', 'Comunicación', 'T. Equipo', 'P. Crítico', 'Resiliencia'];
             new Chart(document.getElementById('competenciesChart').getContext('2d'), { type: 'bar', data: { labels: competencies, datasets: [{ data: competencies.map(()=> Math.random()*40+40), backgroundColor: 'rgba(59, 130, 246, 0.6)' }] }, options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', scales: { x: { beginAtZero: true, max: 100 } }, plugins: { legend: { display: false } } } });
             new Chart(document.getElementById('benchmarkChart').getContext('2d'), {
                 type: 'bar',
                 data: { labels: ['Liderazgo', 'Comunicación', 'Resiliencia'], datasets: [ { label: 'Su Institución', data: [72, 65, 80], backgroundColor: 'rgba(59, 130, 246, 0.8)' }, { label: 'Promedio Nacional', data: [68, 69, 74], backgroundColor: 'rgba(209, 213, 219, 0.8)' } ] },
                 options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100 } }, plugins: { legend: { position: 'bottom' } } }
             });
-            // Widget Chart
             new Chart(document.getElementById('progress-widget-chart').getContext('2d'), { type: 'line', data: { labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'], datasets: [{ data: [65, 68, 70, 68, 72, 75], borderColor: '#22c55e', borderWidth: 2, fill: false, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { display: false }, y: { display: false } }, plugins: { legend: { display: false }, tooltip: { enabled: false } }, elements: { point: { radius: 0 } } } });
             
-            // Time Evolution Chart
-            new Chart(document.getElementById('time-evolution-chart').getContext('2d'), {
-                type: 'line',
-                data: {
-                    labels: ['2023-S1', '2023-S2', '2024-S1', '2024-S2'],
-                    datasets: [
-                        { label: 'Liderazgo', data: [62, 65, 68, 72], borderColor: '#3b82f6', tension: 0.1 },
-                        { label: 'Comunicación', data: [70, 68, 66, 65], borderColor: '#ef4444', tension: 0.1 },
-                        { label: 'Resiliencia', data: [75, 76, 78, 80], borderColor: '#22c55e', tension: 0.1 }
-                    ]
-                },
-                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100 } }, plugins: { legend: { position: 'bottom' } } }
-            });
+            const currentView = state.path[state.path.length - 1];
+            const heatmapData = comparativeData[currentView];
+            
+            if (heatmapData) {
+                document.getElementById('cohort-heatmap-title').textContent = `Análisis Comparativo por ${heatmapData.title}`;
+                const heatmapHead = document.getElementById('cohort-heatmap-head');
+                const heatmapBody = document.getElementById('cohort-heatmap-body');
+                
+                heatmapHead.innerHTML = `<tr><th class="text-left">${heatmapData.title}</th>${heatmapData.competencies.map(c => `<th>${c.split(' ')[0]}</th>`).join('')}</tr>`;
+                heatmapBody.innerHTML = heatmapData.children.map(child => `
+                    <tr>
+                        <td class="text-left font-semibold">${child}</td>
+                        ${heatmapData.competencies.map((comp, i) => {
+                            const val = heatmapData.data[child][i];
+                            const nextLevel = state.level === 'ciclo' ? 'cohorte' : state.level === 'carrera' ? 'ciclo' : state.level === 'sede' ? 'carrera' : 'sede';
+                            return `<td class="heatmap-cell" style="background-color: rgba(59, 130, 246, ${val/100}); color: ${val > 70 ? 'white' : 'inherit'}" data-drilldown-level="${nextLevel}" data-drilldown-name="${child}" data-competency="${comp}">${val}</td>`
+                        }).join('')}
+                    </tr>
+                `).join('');
+            }
         }
         
         function renderStudentCharts(studentsToRender) {
