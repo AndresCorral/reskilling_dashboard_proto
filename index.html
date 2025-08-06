@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plataforma Institucional - Re-Skilling.AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .chart-container {
+            position: relative;
+            height: 280px;
+            width: 100%;
+        }
+        .mini-chart-container {
+            height: 40px;
+        }
+        .widget-chart-container {
+            height: 80px;
+        }
+        .max-h-0 { max-height: 0; }
+        .max-h-screen { max-height: 100vh; }
+        .transition-all { transition: all 0.3s ease-in-out; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="flex flex-col min-h-screen">
+        <!-- Header -->
+        <header class="sticky top-0 bg-white/80 backdrop-blur-lg z-20">
+            <div class="border-b">
+                <div class="max-w-[1440px] mx-auto flex items-center justify-between h-20 px-8">
+                    <h1 class="text-2xl font-bold text-blue-600">Re-Skilling<span class="text-gray-500">.AI</span></h1>
+                    <div class="flex items-center">
+                        <img class="h-10 w-10 rounded-full object-cover" src="https://placehold.co/100x100/E2E8F0/4A5568?text=AV" alt="Avatar de usuario">
+                        <div class="ml-3 text-left">
+                           <p class="text-sm font-medium text-gray-800">Andrés Villa</p>
+                           <p class="text-xs text-gray-500">Vicerrector</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Filter Bar -->
+            <div class="border-b">
+                <div class="max-w-[1440px] mx-auto px-8 py-3">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                        <div id="breadcrumb" class="flex items-center text-sm text-gray-600 mb-2 sm:mb-0 flex-wrap">
+                            <!-- Breadcrumb will be dynamically generated here -->
+                        </div>
+                        <div class="flex items-center space-x-2">
+                             <button id="segmentBtn" class="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-100"><svg class="h-5 w-5 mr-2 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.572a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" /></svg><span id="segmentBtnText">Segmentar Data</span><span id="filterCount" class="ml-2 h-5 w-5 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center hidden">0</span></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+             <div id="filterPanel" class="overflow-hidden max-h-0 transition-all">
+                <div class="max-w-[1440px] mx-auto px-8">
+                    <!-- Filter content will be injected here -->
+                </div>
+            </div>
+        </header>
+
+        <main id="main-content" class="max-w-[1440px] mx-auto w-full p-4 sm:p-6 lg:p-8">
+            <!-- Content will be dynamically inserted here -->
+        </main>
+    </div>
+
+    <!-- Student Detail Modal -->
+    <div id="student-modal" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div class="p-6 border-b flex justify-between items-center">
+                <h3 class="text-xl font-bold">Informe Individual del Estudiante</h3>
+                <button id="close-modal-btn" class="text-gray-500 hover:text-gray-800 text-3xl">&times;</button>
+            </div>
+            <div class="p-6 overflow-y-auto">
+                <p>Aquí iría el reporte detallado del estudiante, con sus gráficos de competencias, evolución, fortalezas, debilidades y planes de acción sugeridos.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const state = {
+            level: 'institucion', // institucion, sede, carrera, ciclo, cohorte
+            path: ['Institución'],
+        };
+
+        const mainContent = document.getElementById('main-content');
+        const breadcrumbContainer = document.getElementById('breadcrumb');
+        const studentModal = document.getElementById('student-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const filterPanel = document.getElementById('filterPanel');
+        const segmentBtnText = document.getElementById('segmentBtnText');
+
+        function renderBreadcrumb() {
+            breadcrumbContainer.innerHTML = '<span class="font-semibold mr-2">Analizando:</span>';
+            state.path.forEach((item, index) => {
+                const isLast = index === state.path.length - 1;
+                if (isLast) {
+                    breadcrumbContainer.innerHTML += `<span class="px-3 py-1 bg-white border border-gray-300 text-gray-800 font-semibold rounded-full">${item}</span>`;
+                } else {
+                    breadcrumbContainer.innerHTML += `<a href="#" data-level-index="${index}" class="breadcrumb-link px-3 py-1 bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200">${item}</a><span class="text-gray-400 mx-1">/</span>`;
+                }
+            });
+        }
+        
+        function getDashboardHTML(title, dynamicData) {
+            return `
+                <div id="dashboard-view">
+                    <div class="mb-8 bg-white p-4 rounded-xl shadow-md">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold text-gray-800" id="drilldown-title">Análisis por Sedes</h3>
+                        </div>
+                        <div class="flex flex-wrap gap-2" id="drilldown-container"></div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div class="bg-white p-6 rounded-xl shadow-md">
+                            <h3 class="font-semibold text-gray-500">Cobertura</h3>
+                            <p class="text-3xl font-bold text-gray-800 mt-2">${dynamicData.cobertura.realizadas} / ${dynamicData.cobertura.total}</p>
+                            <p class="text-sm text-gray-500">alumnos evaluados</p>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 mt-4">
+                                <div class="bg-blue-600 h-2.5 rounded-full" style="width: ${dynamicData.cobertura.porcentaje}%"></div>
+                            </div>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-md">
+                            <h3 class="font-semibold text-gray-500">Inversión vs. Impacto</h3>
+                            <p class="text-3xl font-bold text-green-500 mt-2">$${dynamicData.roi.costoPorInsight.toFixed(2)}</p>
+                            <p class="text-sm text-gray-500">costo por talento identificado</p>
+                             <p class="text-xs text-gray-400 mt-4">${dynamicData.roi.creditosUsados} créditos usados este periodo.</p>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-md">
+                            <h3 class="font-semibold text-gray-500">Velocidad de Desarrollo</h3>
+                            <p class="text-3xl font-bold ${dynamicData.progreso.valor > 0 ? 'text-green-500' : 'text-red-500'} mt-2">${dynamicData.progreso.valor > 0 ? '+' : ''}${dynamicData.progreso.valor}%</p>
+                            <p class="text-sm text-gray-500">vs. semestre anterior</p>
+                            <div class="widget-chart-container mt-1"><canvas id="progress-widget-chart"></canvas></div>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-md">
+                            <h3 class="font-semibold text-gray-500">Foco de Intervención</h3>
+                            <p class="text-3xl font-bold text-red-500 mt-2">${dynamicData.riesgo.cantidad}</p>
+                            <p class="text-sm text-gray-500">alumnos en riesgo (${dynamicData.riesgo.porcentaje}%)</p>
+                            <p class="text-xs text-gray-400 mt-4">Principalmente en 'Comunicación'.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-8 bg-white p-6 rounded-xl shadow-md">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Evolución de Competencias Clave en el Tiempo</h3>
+                        <div class="chart-container"><canvas id="time-evolution-chart"></canvas></div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-8">
+                        <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-md"><h3 class="text-lg font-semibold">Promedio de Competencias</h3><div class="chart-container"><canvas id="competenciesChart"></canvas></div></div>
+                        <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md"><h3 class="text-lg font-semibold">Posición Nacional (vs. Otras Inst.)</h3><div class="chart-container"><canvas id="benchmarkChart"></canvas></div></div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        const allCompetencies = [
+            'Pensamiento analítico / crítico', 'Creatividad e innovación', 'Resiliencia, flexibilidad y agilidad',
+            'Curiosidad y aprendizaje continuo', 'Liderazgo e influencia social', 'Gestión de talento / mentoring',
+            'Orientación al servicio y atención al cliente', 'Inteligencia emocional / autoconciencia',
+            'Comunicación efectiva', 'Toma de decisiones / resolución de problemas complejos'
+        ];
+        const allLevels = ['Principiante', 'Intermedio', 'Avanzado'];
+
+        const mockStudents = Array.from({ length: 23 }, (_, i) => {
+            const nameParts = ['Juan', 'Maria', 'Pedro', 'Ana', 'Carlos', 'Sofia', 'Diego', 'Salma', 'Gael', 'Eiza', 'Javier', 'Penélope', 'Antonio', 'Shakira', 'Maluma', 'Karol', 'J Balvin', 'Lionel', 'Antonela', 'Luis', 'Neymar', 'Sofía', 'Benito'];
+            const lastNames = ['Prueba', 'Alarcón', 'Pascal', 'de Armas', 'Santana', 'Vergara', 'Luna', 'Hayek', 'García', 'González', 'Bardem', 'Cruz', 'Banderas', 'Mebarak', 'Londoño', 'Giraldo', 'Balvin', 'Messi', 'Roccuzzo', 'Suárez', 'Jr', 'Jirau', 'Martínez'];
+            const statusOptions = [
+                { status: 'En Riesgo', statusColor: 'red' },
+                { status: 'Estable', statusColor: 'yellow' },
+                { status: 'En Avance', statusColor: 'green' }
+            ];
+            const randomStatus = statusOptions[Math.floor(Math.random() * statusOptions.length)];
+            
+            const competencies = {};
+            allCompetencies.forEach(c => {
+                competencies[c] = allLevels[Math.floor(Math.random() * allLevels.length)];
+            });
+
+            return {
+                name: `${nameParts[i]} ${lastNames[i]}`,
+                year: 2022 + Math.floor(Math.random() * 3),
+                status: randomStatus.status,
+                statusColor: randomStatus.statusColor,
+                trend: Array.from({ length: 3 }, () => Math.floor(Math.random() * 50 + 40)),
+                competencies: competencies,
+                type: ['Activos', 'Egresados'][Math.floor(Math.random() * 2)]
+            };
+        });
+
+        function getStudentCardHTML(student, index) {
+            const statusClasses = {
+                red: 'text-red-800 bg-red-100',
+                green: 'text-green-800 bg-green-100',
+                yellow: 'text-yellow-800 bg-yellow-100'
+            };
+            const initials = student.name.split(' ').map(n => n[0]).join('');
+            
+            return `
+                <div class="bg-white rounded-xl shadow-md overflow-hidden">
+                    <div class="p-4">
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-center">
+                                <img class="h-10 w-10 rounded-full object-cover" src="https://placehold.co/100x100/E2E8F0/4A5568?text=${initials}" alt="Avatar">
+                                <div class="ml-3">
+                                    <p class="font-bold text-sm text-gray-800">${student.name}</p>
+                                    <p class="text-xs text-gray-500">Cohorte ${student.year}</p>
+                                </div>
+                            </div>
+                            <span class="px-2 py-1 text-xs font-semibold ${statusClasses[student.statusColor]} rounded-full">${student.status}</span>
+                        </div>
+                        <div class="mt-3">
+                            <div class="mini-chart-container"><canvas id="studentChart${index}"></canvas></div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-4 py-2 flex justify-end">
+                        <button class="student-report-btn px-3 py-1 bg-blue-100 text-blue-600 text-xs font-semibold rounded-lg hover:bg-blue-200">Ver Informe</button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function getStudentListHTML(studentsToRender) {
+            const studentCardsHTML = studentsToRender.map((student, index) => getStudentCardHTML(student, index)).join('');
+            const summary = {
+                total: studentsToRender.length,
+                riesgo: studentsToRender.filter(s => s.status === 'En Riesgo').length
+            };
+
+            return `
+                <div id="student-list-view">
+                    <div class="mb-8">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-4">Resumen del Grupo: ${state.path[state.path.length-1]}</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div class="bg-white p-6 rounded-xl shadow-md"><h4 class="font-semibold text-gray-500">Alumnos en Vista</h4><p class="text-3xl font-bold text-gray-800 mt-2">${summary.total}</p></div>
+                            <div class="bg-white p-6 rounded-xl shadow-md"><h4 class="font-semibold text-gray-500">Progreso Promedio</h4><p class="text-3xl font-bold text-green-500 mt-2">+9%</p></div>
+                            <div class="bg-white p-6 rounded-xl shadow-md"><h4 class="font-semibold text-gray-500">Alumnos en Riesgo</h4><p class="text-3xl font-bold text-red-500 mt-2">${summary.riesgo} <span class="text-lg">(${summary.total > 0 ? Math.round(summary.riesgo/summary.total*100) : 0}%)</span></p></div>
+                            <div class="bg-white p-6 rounded-xl shadow-md"><h4 class="font-semibold text-gray-500">Competencia Crítica</h4><p class="text-xl font-bold text-gray-800 mt-2">Comunicación</p></div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                        ${studentCardsHTML.length > 0 ? studentCardsHTML : '<p class="col-span-full text-center text-gray-500">No se encontraron alumnos con los filtros seleccionados.</p>'}
+                    </div>
+                </div>
+            `;
+        }
+        
+        function generateDynamicData(level) {
+            const baseTotal = 1000;
+            let factor = 1;
+            if (level === 'sede') factor = 0.3;
+            if (level === 'carrera') factor = 0.1;
+            if (level === 'ciclo') factor = 0.05;
+            if (level === 'cohorte') factor = 0.03;
+
+            const total = Math.floor(baseTotal * factor);
+            const realizadas = Math.floor(total * (Math.random() * 0.15 + 0.8));
+            const creditosUsados = realizadas;
+            const talentosIdentificados = Math.floor(realizadas * (Math.random() * 0.1 + 0.1));
+            const costoPorInsight = creditosUsados > 0 && talentosIdentificados > 0 ? (creditosUsados * 1.5) / talentosIdentificados : 0;
+            const riesgoCantidad = Math.floor(realizadas * (Math.random() * 0.1 + 0.05));
+
+            return {
+                cobertura: { total, realizadas, porcentaje: total > 0 ? Math.round((realizadas / total) * 100) : 0 },
+                roi: { creditosUsados, costoPorInsight },
+                progreso: { valor: Math.round((Math.random() * 20) - 5) },
+                riesgo: { cantidad: riesgoCantidad, porcentaje: realizadas > 0 ? Math.round((riesgoCantidad / realizadas) * 100) : 0 }
+            };
+        }
+
+        function filterAndRenderStudents() {
+            const estadoFilter = document.getElementById('student-estado-filter').value;
+            const competenciaFilter = document.getElementById('student-competencia-filter').value;
+            const nivelFilter = document.getElementById('student-nivel-filter').value;
+
+            let filteredStudents = mockStudents;
+
+            if (estadoFilter !== 'Todos') {
+                if (estadoFilter === 'En Riesgo') {
+                    filteredStudents = filteredStudents.filter(s => s.status === 'En Riesgo');
+                } else {
+                    filteredStudents = filteredStudents.filter(s => s.type === estadoFilter);
+                }
+            }
+            if (competenciaFilter !== 'Ninguna') {
+                if (nivelFilter !== 'Todos') {
+                    filteredStudents = filteredStudents.filter(s => s.competencies[competenciaFilter] === nivelFilter);
+                }
+            }
+            
+            mainContent.innerHTML = getStudentListHTML(filteredStudents);
+            renderStudentCharts(filteredStudents);
+            addEventListeners();
+        }
+
+        function renderContent() {
+            renderBreadcrumb();
+            const levelTitles = { institucion: 'Análisis Institucional', sede: `Análisis de Sede: ${state.path[1]}`, carrera: `Análisis de Carrera: ${state.path[2]}`, ciclo: `Análisis de Ciclo: ${state.path[3]}`, cohorte: `Listado de Alumnos: ${state.path[4]}`};
+            
+            if (state.level === 'cohorte') {
+                segmentBtnText.textContent = "Filtrar Alumnos";
+                renderFilterPanel('student');
+                filterAndRenderStudents();
+            } else {
+                segmentBtnText.textContent = "Segmentar Dashboard";
+                renderFilterPanel('dashboard');
+                const dynamicData = generateDynamicData(state.level);
+                mainContent.innerHTML = getDashboardHTML(levelTitles[state.level], dynamicData);
+                renderDashboardCharts();
+                updateDrilldownOptions();
+            }
+            addEventListeners();
+        }
+        
+        function getDrilldownPillHTML(item) {
+            return `
+                <button class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-100 hover:border-blue-500 transition-all" data-drilldown-level="${item.level}" data-drilldown-name="${item.name}">
+                    ${item.name}
+                </button>
+            `;
+        }
+        
+        function getDashboardFilterHTML() {
+            return `
+                <div class="bg-gray-100 p-4 mt-3 rounded-lg border">
+                    <p class="text-sm font-semibold mb-2">Segmentar datos del Dashboard</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div><label for="dashboard-estado-filter" class="block text-sm font-medium text-gray-700">Estado Alumno</label><select id="dashboard-estado-filter" class="filter-input mt-1 block w-full rounded-md border-gray-300 shadow-sm"><option>Todos</option><option>Activos</option><option>Egresados</option></select></div>
+                    </div>
+                </div>`;
+        }
+
+        function getStudentFilterHTML() {
+            const competencyOptions = allCompetencies.map(c => `<option>${c}</option>`).join('');
+            const levelOptions = allLevels.map(l => `<option>${l}</option>`).join('');
+            return `
+                <div class="bg-gray-100 p-4 mt-3 rounded-lg border">
+                    <p class="text-sm font-semibold mb-2">Filtrar lista de alumnos</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div><label for="student-estado-filter" class="block text-sm font-medium text-gray-700">Estado Alumno</label><select id="student-estado-filter" class="filter-input mt-1 block w-full rounded-md border-gray-300 shadow-sm"><option>Todos</option><option>Activos</option><option>Egresados</option><option>En Riesgo</option></select></div>
+                        <div><label for="student-competencia-filter" class="block text-sm font-medium text-gray-700">Competencia</label><select id="student-competencia-filter" class="filter-input mt-1 block w-full rounded-md border-gray-300 shadow-sm"><option>Ninguna</option>${competencyOptions}</select></div>
+                        <div><label for="student-nivel-filter" class="block text-sm font-medium text-gray-700">Nivel Rúbrica</label><select id="student-nivel-filter" class="filter-input mt-1 block w-full rounded-md border-gray-300 shadow-sm" disabled><option>Todos</option>${levelOptions}</select></div>
+                    </div>
+                </div>`;
+        }
+
+        function renderFilterPanel(type) {
+            if (type === 'student') {
+                filterPanel.innerHTML = getStudentFilterHTML();
+                document.getElementById('student-competencia-filter').addEventListener('change', (e) => {
+                    document.getElementById('student-nivel-filter').disabled = (e.target.value === 'Ninguna');
+                });
+            } else {
+                filterPanel.innerHTML = getDashboardFilterHTML();
+            }
+        }
+
+        function updateDrilldownOptions() {
+            const container = document.getElementById('drilldown-container');
+            const titleEl = document.getElementById('drilldown-title');
+            if (!container) return;
+            
+            let options = [];
+            const levels = ['institucion', 'sede', 'carrera', 'ciclo', 'cohorte'];
+            const nextLevel = levels[levels.indexOf(state.level) + 1];
+
+            if (state.level === 'institucion') {
+                titleEl.textContent = "Análisis por Sedes";
+                options = [{level: nextLevel, name: 'Sede Central'}, {level: nextLevel, name: 'Sede Norte'}, {level: nextLevel, name: 'Sede Sur'}, {level: nextLevel, name: 'Campus Andino'}, {level: nextLevel, name: 'Campus Virtual'}];
+            } else if (state.level === 'sede') {
+                titleEl.textContent = "Análisis por Carreras";
+                options = [{level: nextLevel, name: 'Ing. Comercial'}, {level: nextLevel, name: 'Psicología'}, {level: nextLevel, name: 'Diseño Gráfico'}];
+            } else if (state.level === 'carrera') {
+                 titleEl.textContent = "Análisis por Ciclos";
+                 options = [{level: nextLevel, name: 'Ciclo 1'}, {level: nextLevel, name: 'Ciclo 3'}, {level: nextLevel, name: 'Ciclo 5 (Egresados)'}];
+            } else if (state.level === 'ciclo') {
+                 titleEl.textContent = "Análisis por Cohortes";
+                 options = [{level: nextLevel, name: 'Cohorte 2024'}, {level: nextLevel, name: 'Cohorte 2023'}];
+            }
+            
+            container.innerHTML = options.map(opt => getDrilldownPillHTML(opt)).join('');
+        }
+
+        function addEventListeners() {
+            document.querySelectorAll('.breadcrumb-link').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const levelIndex = parseInt(e.currentTarget.dataset.levelIndex);
+                    const levels = ['institucion', 'sede', 'carrera', 'ciclo', 'cohorte'];
+                    state.path = state.path.slice(0, levelIndex + 1);
+                    state.level = levels[levelIndex];
+                    renderContent();
+                });
+            });
+
+            document.querySelectorAll('[data-drilldown-level]').forEach(card => {
+                card.addEventListener('click', (e) => {
+                    const level = e.currentTarget.dataset.drilldownLevel;
+                    const name = e.currentTarget.dataset.drilldownName;
+                    state.level = level;
+                    state.path.push(name);
+                    renderContent();
+                });
+            });
+
+            document.querySelectorAll('.student-report-btn').forEach(btn => {
+                btn.addEventListener('click', () => studentModal.style.display = 'flex');
+            });
+            
+            document.querySelectorAll('.filter-input').forEach(input => {
+                if (state.level === 'cohorte') {
+                    input.addEventListener('change', filterAndRenderStudents);
+                } else {
+                    // Add logic for dashboard filtering here if needed
+                }
+            });
+        }
+
+        function renderDashboardCharts() {
+            const competencies = ['Liderazgo', 'Comunicación', 'T. Equipo', 'P. Crítico', 'Resiliencia', 'Adaptabilidad', 'T. Decisiones'];
+            new Chart(document.getElementById('competenciesChart').getContext('2d'), { type: 'bar', data: { labels: competencies, datasets: [{ data: competencies.map(()=> Math.random()*40+40), backgroundColor: 'rgba(59, 130, 246, 0.6)' }] }, options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', scales: { x: { beginAtZero: true, max: 100 } }, plugins: { legend: { display: false } } } });
+            new Chart(document.getElementById('benchmarkChart').getContext('2d'), {
+                type: 'bar',
+                data: { labels: ['Liderazgo', 'Comunicación', 'Resiliencia'], datasets: [ { label: 'Su Institución', data: [72, 65, 80], backgroundColor: 'rgba(59, 130, 246, 0.8)' }, { label: 'Promedio Nacional', data: [68, 69, 74], backgroundColor: 'rgba(209, 213, 219, 0.8)' } ] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100 } }, plugins: { legend: { position: 'bottom' } } }
+            });
+            // Widget Chart
+            new Chart(document.getElementById('progress-widget-chart').getContext('2d'), { type: 'line', data: { labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'], datasets: [{ data: [65, 68, 70, 68, 72, 75], borderColor: '#22c55e', borderWidth: 2, fill: false, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { display: false }, y: { display: false } }, plugins: { legend: { display: false }, tooltip: { enabled: false } }, elements: { point: { radius: 0 } } } });
+            
+            // Time Evolution Chart
+            new Chart(document.getElementById('time-evolution-chart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: ['2023-S1', '2023-S2', '2024-S1', '2024-S2'],
+                    datasets: [
+                        { label: 'Liderazgo', data: [62, 65, 68, 72], borderColor: '#3b82f6', tension: 0.1 },
+                        { label: 'Comunicación', data: [70, 68, 66, 65], borderColor: '#ef4444', tension: 0.1 },
+                        { label: 'Resiliencia', data: [75, 76, 78, 80], borderColor: '#22c55e', tension: 0.1 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100 } }, plugins: { legend: { position: 'bottom' } } }
+            });
+        }
+        
+        function renderStudentCharts(studentsToRender) {
+            studentsToRender.forEach((student, index) => {
+                const canvas = document.getElementById(`studentChart${index}`);
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
+                const trendColor = student.statusColor === 'red' ? '#ef4444' : (student.statusColor === 'green' ? '#22c55e' : '#f59e0b');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ['Inicio', 'Medio', 'Fin'],
+                        datasets: [{ 
+                            data: student.trend, 
+                            borderColor: trendColor 
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { x: { display: false }, y: { display: false } }, plugins: { legend: { display: false }, tooltip: {enabled: false} }, elements: { point: { radius: 0 }, line: { tension: 0.4, borderWidth: 2 } } }
+                });
+            });
+        }
+        
+        // Initial Render
+        renderContent();
+        
+        // Modal Logic
+        closeModalBtn.addEventListener('click', () => studentModal.style.display = 'none');
+        studentModal.addEventListener('click', (e) => { if(e.target === studentModal) { studentModal.style.display = 'none'; } });
+
+        // Filter panel logic
+        const segmentBtn = document.getElementById('segmentBtn');
+        segmentBtn.addEventListener('click', () => {
+            filterPanel.classList.toggle('max-h-0');
+            filterPanel.classList.toggle('max-h-screen');
+        });
+    </script>
+</body>
+</html>
